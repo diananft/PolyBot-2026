@@ -129,8 +129,16 @@ Live trading is blocked unless **all three** are set:
 export POLYBOT_LIVE=true
 export POLYBOT_LIVE_CONFIRM=I_UNDERSTAND_THE_RISK
 export POLYMARKET_PRIVATE_KEY=0x...        # Polygon wallet, USDC settlement
+# Wallet type: 0 = MetaMask/EOA holding USDC directly (default);
+#              1 = Polymarket email/Magic account; 2 = browser proxy.
+# For 1 or 2 you MUST also set the funder to your Polymarket address:
+export POLYMARKET_SIGNATURE_TYPE=0
+# export POLYMARKET_FUNDER=0xYourPolymarketProxyAddress   # only for type 1/2
 pip install ".[live]"                       # py-clob-client + websockets
 ```
+
+API credentials are derived automatically from your key on startup — you do
+not create them by hand.
 
 4. Start with a tiny bankroll and run it:
 

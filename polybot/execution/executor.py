@@ -68,12 +68,21 @@ class LiveExecutor:
             raise RuntimeError(
                 "py-clob-client is required for live trading: pip install py-clob-client"
             ) from e
-        # Polygon mainnet, chain id 137, USDC settlement.
-        return ClobClient(
-            self.config.polymarket_clob_url,
-            key=self.config.polymarket_private_key,
-            chain_id=137,
-        )
+        cfg = self.config
+        # Polygon mainnet, chain id 137, USDC settlement. signature_type/funder
+        # select the wallet model (EOA vs email/proxy).
+        kwargs = dict(key=cfg.polymarket_private_key, chain_id=137,
+                      signature_type=cfg.polymarket_signature_type)
+        if cfg.polymarket_funder:
+            kwargs["funder"] = cfg.polymarket_funder
+        client = ClobClient(cfg.polymarket_clob_url, **kwargs)
+        # L2 auth: derive (or create) the API credentials needed to post orders.
+        client.set_api_creds(client.create_or_derive_api_creds())
+        return client
+
+    def _order_type(self):  # pragma: no cover - network
+        from py_clob_client.clob_types import OrderType  # type: ignore
+        return getattr(OrderType, self.config.order_type, OrderType.FAK)
 
     def submit(self, order: Order) -> Optional[Fill]:  # pragma: no cover - network
         allowed, reason = self.config.can_trade_live()
@@ -81,6 +90,7 @@ class LiveExecutor:
             log.error("live submit blocked: %s", reason)
             return None
         from py_clob_client.clob_types import OrderArgs  # type: ignore
+        from py_clob_client.order_builder.constants import BUY  # type: ignore
 
         # Translate USD notional into share quantity at our limit price.
         size_shares = order.size_usd / order.limit_price if order.limit_price > 0 else 0
@@ -89,14 +99,22 @@ class LiveExecutor:
         args = OrderArgs(
             price=round(order.limit_price, 3),
             size=round(size_shares, 2),
-            side="BUY",
+            side=BUY,
             token_id=order.token_id,
         )
-        signed = self._client.create_order(args)
-        resp = self._client.post_order(signed)
+        try:
+            signed = self._client.create_order(args)
+            resp = self._client.post_order(signed, self._order_type())
+        except Exception as e:
+            log.error("LIVE order failed for %s: %s", order.market_id, e)
+            return None
         log.info("LIVE order response: %s", resp)
-        # Real fill reconciliation should poll the order status; we optimistically
-        # record the limit as the fill and let settlement correct PnL.
+        # Only record a fill if the venue accepted the order.
+        if not isinstance(resp, dict) or not resp.get("success", False):
+            log.warning("LIVE order not accepted: %s", resp)
+            return None
+        # Reconciliation of the exact matched size happens at settlement; record
+        # the requested notional at our limit and let settlement correct PnL.
         fee = order.size_usd * self.config.risk.fee_rate
         return Fill(order=order, fill_price=order.limit_price, size_usd=order.size_usd, fee_usd=fee)
 
