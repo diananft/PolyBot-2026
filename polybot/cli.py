@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 
@@ -113,11 +114,20 @@ def cmd_live(args) -> int:
     if not allowed:
         print(f"LIVE TRADING BLOCKED: {reason}", file=sys.stderr)
         print("\nTo enable (only if you accept full financial risk):", file=sys.stderr)
-        print("  export POLYBOT_LIVE=true", file=sys.stderr)
-        print("  export POLYBOT_LIVE_CONFIRM=I_UNDERSTAND_THE_RISK", file=sys.stderr)
-        print("  export POLYMARKET_PRIVATE_KEY=0x...", file=sys.stderr)
-        print("  pip install '.[live]'", file=sys.stderr)
-        print("\nThen re-run `polybot live`. Test with `polybot paper` first.", file=sys.stderr)
+        if os.name == "nt":
+            # PowerShell syntax (`export` is bash and does nothing on Windows).
+            print("  PowerShell:", file=sys.stderr)
+            print('    $env:POLYBOT_LIVE = "true"', file=sys.stderr)
+            print('    $env:POLYBOT_LIVE_CONFIRM = "I_UNDERSTAND_THE_RISK"', file=sys.stderr)
+            print('    $env:POLYMARKET_PRIVATE_KEY = "0x..."', file=sys.stderr)
+            print("  ...set them in the SAME window you run the bot in, or put", file=sys.stderr)
+            print("  them in a .env file in this folder (auto-loaded).", file=sys.stderr)
+        else:
+            print("  export POLYBOT_LIVE=true", file=sys.stderr)
+            print("  export POLYBOT_LIVE_CONFIRM=I_UNDERSTAND_THE_RISK", file=sys.stderr)
+            print("  export POLYMARKET_PRIVATE_KEY=0x...", file=sys.stderr)
+            print("  ...or put them in a .env file in this folder (auto-loaded).", file=sys.stderr)
+        print("\nCheck `polybot config` shows: live trading allowed: True", file=sys.stderr)
         return 1
     if not args.yes:
         print("About to trade REAL money on Polymarket. Re-run with --yes to confirm.",
