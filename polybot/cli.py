@@ -84,7 +84,11 @@ def cmd_scan(args) -> int:
 def _run_live_runner(cfg, cycles: Optional[int]) -> int:
     from .live_runner import LiveRunner
 
-    runner = LiveRunner(cfg)
+    try:
+        runner = LiveRunner(cfg)
+    except (ValueError, PermissionError, RuntimeError) as e:
+        print(f"\nLIVE SETUP ERROR:\n{e}", file=sys.stderr)
+        return 1
     allowed, reason = cfg.can_trade_live()
     mode = "LIVE" if allowed else "PAPER"
     print(f"Starting {mode} trading loop against live Polymarket data "

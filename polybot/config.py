@@ -131,10 +131,11 @@ class Config:
 
     def to_dict(self) -> dict:
         d = asdict(self)
-        # Never echo secrets.
+        # Never echo secrets — but show the length so a malformed key (wrong
+        # length, placeholder, seed phrase) can be spotted without exposing it.
         for k in list(d):
             if "key" in k or "secret" in k or "passphrase" in k or "confirm" in k:
-                d[k] = "***" if d[k] else ""
+                d[k] = f"*** (len={len(str(d[k]))})" if d[k] else ""
         return d
 
 
