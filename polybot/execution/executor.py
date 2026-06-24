@@ -46,6 +46,31 @@ class PaperExecutor:
         return Fill(order=order, fill_price=fill_price, size_usd=order.size_usd, fee_usd=fee)
 
 
+def normalize_private_key(raw: str) -> str:
+    """Validate and normalise a wallet private key to 0x-prefixed 64-hex form.
+
+    Raises ValueError with actionable guidance if it isn't a valid key — which
+    is the single most common live-setup mistake (placeholder left in, a seed
+    phrase pasted instead of a key, stray quotes/spaces, or the API key by
+    mistake).
+    """
+    k = (raw or "").strip().strip('"').strip("'")
+    if k.lower().startswith("0x"):
+        k = k[2:]
+    hex_digits = set("0123456789abcdefABCDEF")
+    if len(k) != 64 or any(c not in hex_digits for c in k):
+        raise ValueError(
+            "POLYMARKET_PRIVATE_KEY is not a valid wallet private key.\n"
+            "  It must be exactly 64 hexadecimal characters (0-9, a-f), optionally\n"
+            "  prefixed with 0x. It is your wallet's PRIVATE KEY (e.g. MetaMask -> \n"
+            "  Account details -> Show private key) — NOT your 12/24-word seed\n"
+            "  phrase, and NOT a Polymarket API key. Check your .env: replace any\n"
+            "  placeholder, and remove quotes or spaces.\n"
+            f"  (got {len(k)} characters after stripping 0x)"
+        )
+    return "0x" + k.lower()
+
+
 class LiveExecutor:
     """Real execution via the Polymarket CLOB. Heavily guarded.
 
@@ -69,9 +94,10 @@ class LiveExecutor:
                 "py-clob-client is required for live trading: pip install py-clob-client"
             ) from e
         cfg = self.config
+        key = normalize_private_key(cfg.polymarket_private_key)
         # Polygon mainnet, chain id 137, USDC settlement. signature_type/funder
         # select the wallet model (EOA vs email/proxy).
-        kwargs = dict(key=cfg.polymarket_private_key, chain_id=137,
+        kwargs = dict(key=key, chain_id=137,
                       signature_type=cfg.polymarket_signature_type)
         if cfg.polymarket_funder:
             kwargs["funder"] = cfg.polymarket_funder

@@ -29,8 +29,29 @@ def test_config_redacts_secrets():
     cfg.polymarket_private_key = "0xsecret"
     cfg.anthropic_api_key = "sk-secret"
     d = cfg.to_dict()
-    assert d["polymarket_private_key"] == "***"
-    assert d["anthropic_api_key"] == "***"
+    assert d["polymarket_private_key"].startswith("***")
+    assert "0xsecret" not in d["polymarket_private_key"]
+    assert d["anthropic_api_key"].startswith("***")
+    assert "sk-secret" not in d["anthropic_api_key"]
+
+
+def test_normalize_private_key_accepts_valid():
+    import secrets
+    from polybot.execution.executor import normalize_private_key
+
+    raw = secrets.token_hex(32)            # 64 hex chars, no prefix
+    assert normalize_private_key(raw) == "0x" + raw
+    assert normalize_private_key("0x" + raw) == "0x" + raw
+    assert normalize_private_key('  "0x' + raw + '"  ') == "0x" + raw  # quotes/space
+
+
+def test_normalize_private_key_rejects_bad():
+    import pytest
+    from polybot.execution.executor import normalize_private_key
+
+    for bad in ("0x...", "0xYOUR_KEY", "", "abc", "g" * 64, "12 word seed phrase here"):
+        with pytest.raises(ValueError):
+            normalize_private_key(bad)
 
 
 def test_live_executor_refuses_to_build_when_gated():
