@@ -42,9 +42,17 @@ def position_size_usd(
     bankroll_usd: float,
     kelly_fraction_used: float,
     max_position_fraction: float,
+    max_position_usd: float = 0.0,
 ) -> float:
-    """USD to stake after applying fractional Kelly and the per-trade cap."""
+    """USD to stake after applying fractional Kelly and the caps.
+
+    ``max_position_usd`` (when > 0) is an absolute dollar ceiling applied on top
+    of the bankroll-fraction cap, so a single bet never exceeds it.
+    """
     f_star = kelly_fraction(win_prob, price)
     f = f_star * kelly_fraction_used
     f = min(f, max_position_fraction)
-    return max(0.0, f * bankroll_usd)
+    usd = max(0.0, f * bankroll_usd)
+    if max_position_usd and max_position_usd > 0:
+        usd = min(usd, max_position_usd)
+    return usd

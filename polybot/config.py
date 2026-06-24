@@ -33,13 +33,16 @@ def _env_bool(name: str, default: bool = False) -> bool:
 class RiskConfig:
     """Risk limits. The defaults are deliberately cautious."""
 
-    bankroll_usd: float = 1_000.0
+    bankroll_usd: float = field(default_factory=lambda: _env_float("POLYBOT_BANKROLL", 30.0))
     # Fraction of full-Kelly to actually deploy. 1.0 == full Kelly (aggressive
     # and high-variance); we default to a quarter-Kelly, which is standard
     # practice for surviving estimation error in the edge.
     kelly_fraction: float = 0.25
     # Hard cap on any single position as a fraction of bankroll.
     max_position_fraction: float = 0.10
+    # Hard cap on any single position in absolute USD (0 = disabled). This binds
+    # regardless of bankroll or Kelly, so every bet is at most this many dollars.
+    max_position_usd: float = field(default_factory=lambda: _env_float("POLYBOT_MAX_POSITION_USD", 1.50))
     # Minimum edge (fair_prob - market_prob) required to act at all.
     min_edge: float = 0.04
     # Minimum model confidence required to act.
