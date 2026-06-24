@@ -46,6 +46,42 @@ class PaperExecutor:
         return Fill(order=order, fill_price=fill_price, size_usd=order.size_usd, fee_usd=fee)
 
 
+MIN_CLOB_CLIENT = (0, 34, 0)
+
+
+def _version_tuple(ver: str) -> tuple[int, ...]:
+    parts = []
+    for piece in ver.split("."):
+        num = ""
+        for ch in piece:
+            if ch.isdigit():
+                num += ch
+            else:
+                break
+        parts.append(int(num) if num else 0)
+    return tuple(parts)
+
+
+def _require_recent_clob_client() -> None:
+    """Fail fast (at startup, not per-order) if py-clob-client is too old to
+    build the order version Polymarket accepts."""
+    import importlib.metadata as md
+
+    try:
+        ver = md.version("py-clob-client")
+    except Exception:  # pragma: no cover - metadata edge cases
+        return
+    if _version_tuple(ver) < MIN_CLOB_CLIENT:
+        need = ".".join(map(str, MIN_CLOB_CLIENT))
+        raise RuntimeError(
+            f"py-clob-client {ver} is too old — Polymarket rejects its orders "
+            f"('invalid order version'). Upgrade to >= {need}:\n"
+            f"    py -m pip install --upgrade \"py-clob-client>={need}\"\n"
+            f"  If that fails to install (common on Python 3.14), use Python 3.12 "
+            f"instead — these crypto dependencies may not have 3.14 wheels yet."
+        )
+
+
 def normalize_private_key(raw: str) -> str:
     """Validate and normalise a wallet private key to 0x-prefixed 64-hex form.
 
@@ -93,6 +129,7 @@ class LiveExecutor:
             raise RuntimeError(
                 "py-clob-client is required for live trading: pip install py-clob-client"
             ) from e
+        _require_recent_clob_client()
         cfg = self.config
         key = normalize_private_key(cfg.polymarket_private_key)
         # Polygon mainnet, chain id 137, USDC settlement. signature_type/funder

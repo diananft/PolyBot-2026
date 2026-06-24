@@ -45,6 +45,16 @@ def test_normalize_private_key_accepts_valid():
     assert normalize_private_key('  "0x' + raw + '"  ') == "0x" + raw  # quotes/space
 
 
+def test_clob_client_version_tuple():
+    from polybot.execution.executor import _version_tuple, MIN_CLOB_CLIENT
+
+    assert _version_tuple("0.34.6") == (0, 34, 6)
+    assert _version_tuple("0.1.13") == (0, 1, 13)
+    assert _version_tuple("1.0.0rc1") == (1, 0, 0)   # tolerates suffixes
+    assert _version_tuple("0.34.0") >= MIN_CLOB_CLIENT
+    assert _version_tuple("0.1.13") < MIN_CLOB_CLIENT
+
+
 def test_normalize_private_key_rejects_bad():
     import pytest
     from polybot.execution.executor import normalize_private_key
