@@ -1,0 +1,9 @@
+# Core: none — the bot's strategy, risk, backtest and paper-trading run on the
+# Python standard library only. Install the extras below for optional features.
+
+# Live trading on the Polymarket CLOB (real orders):
+#   pip install py-clob-client websockets
+# AI "brain" (optional Claude risk veto):
+#   pip install anthropic
+# Development:
+#   pip install pytest

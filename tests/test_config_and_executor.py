@@ -1,0 +1,56 @@
+from polybot.config import Config
+from polybot.execution.executor import PaperExecutor, build_executor, LiveExecutor
+from polybot.models import Action, Order, Side
+
+
+def test_live_blocked_by_default():
+    cfg = Config()
+    allowed, reason = cfg.can_trade_live()
+    assert not allowed
+
+
+def test_live_requires_all_gates(monkeypatch):
+    cfg = Config()
+    cfg.live_trading = True
+    # Missing confirm token and key -> still blocked.
+    assert not cfg.can_trade_live()[0]
+    cfg.live_confirm = "I_UNDERSTAND_THE_RISK"
+    assert not cfg.can_trade_live()[0]  # still no private key
+    cfg.polymarket_private_key = "0xdeadbeef"
+    assert cfg.can_trade_live()[0]
+
+
+def test_build_executor_returns_paper_by_default():
+    assert isinstance(build_executor(Config()), PaperExecutor)
+
+
+def test_config_redacts_secrets():
+    cfg = Config()
+    cfg.polymarket_private_key = "0xsecret"
+    cfg.anthropic_api_key = "sk-secret"
+    d = cfg.to_dict()
+    assert d["polymarket_private_key"] == "***"
+    assert d["anthropic_api_key"] == "***"
+
+
+def test_live_executor_refuses_to_build_when_gated():
+    cfg = Config()  # paper mode
+    try:
+        LiveExecutor(cfg)
+        assert False, "should have raised"
+    except PermissionError:
+        pass
+
+
+def test_paper_executor_applies_slippage_and_fee():
+    ex = PaperExecutor(slippage=0.01, fee_rate=0.02)
+    order = Order("m", Side.UP, Action.BUY, size_usd=100, limit_price=0.50)
+    fill = ex.submit(order)
+    assert abs(fill.fill_price - 0.51) < 1e-9
+    assert abs(fill.fee_usd - 2.0) < 1e-9
+
+
+def test_paper_executor_ignores_non_buy():
+    ex = PaperExecutor(0.0, 0.0)
+    order = Order("m", Side.UP, Action.SELL, 100, 0.5)
+    assert ex.submit(order) is None
