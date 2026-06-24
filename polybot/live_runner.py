@@ -82,7 +82,10 @@ class LiveRunner:
         """Drive the live loop. ``max_cycles=None`` runs forever."""
         sleep = sleep or time.sleep
         allowed, reason = self.config.can_trade_live()
-        log.warning("LIVE TRADING" if allowed else "PAPER TRADING (%s)", reason)
+        if allowed:
+            log.warning("LIVE TRADING — real orders will be submitted")
+        else:
+            log.warning("PAPER TRADING (%s)", reason)
 
         cycle = 0
         while max_cycles is None or cycle < max_cycles:

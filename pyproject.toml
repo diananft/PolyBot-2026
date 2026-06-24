@@ -14,7 +14,9 @@ dependencies = []  # core runs on the standard library only
 
 [project.optional-dependencies]
 # Live trading + websocket streaming + AI brain. None required for paper/backtest.
-live = ["py-clob-client>=0.1.0", "websockets>=12.0"]
+# py-clob-client must be recent — Polymarket rejects orders built by old clients
+# ("invalid order version, please use the latest clob-client").
+live = ["py-clob-client>=0.34.0", "websockets>=12.0"]
 ai = ["anthropic>=0.39.0"]
 dev = ["pytest>=8.0"]
 

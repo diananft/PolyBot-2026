@@ -133,6 +133,11 @@ class LiveExecutor:
             resp = self._client.post_order(signed, self._order_type())
         except Exception as e:
             log.error("LIVE order failed for %s: %s", order.market_id, e)
+            if "order version" in str(e) or "latest clob-client" in str(e):
+                log.error(
+                    "Your py-clob-client is outdated. Upgrade it: "
+                    "py -m pip install --upgrade py-clob-client"
+                )
             return None
         log.info("LIVE order response: %s", resp)
         # Only record a fill if the venue accepted the order.
