@@ -86,8 +86,11 @@ class Config:
     anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
 
     # --- endpoints ---
-    binance_ws_url: str = "wss://stream.binance.com:9443/ws"
-    binance_rest_url: str = "https://api.binance.com"
+    # Public market-data host: same /api/v3 endpoints as api.binance.com but not
+    # geo-restricted (api.binance.com returns HTTP 451 in many regions). Override
+    # via POLYBOT_BINANCE_REST if you have direct access.
+    binance_ws_url: str = field(default_factory=lambda: os.getenv("POLYBOT_BINANCE_WS", "wss://data-stream.binance.vision/ws"))
+    binance_rest_url: str = field(default_factory=lambda: os.getenv("POLYBOT_BINANCE_REST", "https://data-api.binance.vision"))
     polymarket_clob_url: str = "https://clob.polymarket.com"
     polymarket_gamma_url: str = "https://gamma-api.polymarket.com"
 

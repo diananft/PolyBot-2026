@@ -80,11 +80,31 @@ def cmd_scan(args) -> int:
     return 0
 
 
-def cmd_paper(args) -> int:
-    print("Live paper trading requires configured live markets and network access.")
-    print("Use `polybot demo` for a fully self-contained run, or wire markets via the")
-    print("Python API: TradingEngine(cfg).track(market); engine.run().")
+def _run_live_runner(cfg, cycles: Optional[int]) -> int:
+    from .live_runner import LiveRunner
+
+    runner = LiveRunner(cfg)
+    allowed, reason = cfg.can_trade_live()
+    mode = "LIVE" if allowed else "PAPER"
+    print(f"Starting {mode} trading loop against live Polymarket data "
+          f"(Ctrl-C to stop)...")
+    try:
+        runner.run(max_cycles=cycles)
+    except KeyboardInterrupt:
+        print("\nstopped by user")
+    p = runner.engine.portfolio
+    print(f"\nequity=${p.equity_usd():,.2f} realisedPnL=${p.realised_pnl:,.2f} "
+          f"open={len(p.positions)} fees=${p.fees_paid_usd:,.2f} "
+          f"killswitch={runner.engine.risk.kill_switch_tripped}")
     return 0
+
+
+def cmd_paper(args) -> int:
+    """Paper-trade against REAL live Polymarket + Binance data. No keys, no risk."""
+    cfg = load_config()
+    # Force paper regardless of env, so `paper` is always safe.
+    cfg.live_trading = False
+    return _run_live_runner(cfg, args.cycles)
 
 
 def cmd_live(args) -> int:
@@ -96,10 +116,14 @@ def cmd_live(args) -> int:
         print("  export POLYBOT_LIVE=true", file=sys.stderr)
         print("  export POLYBOT_LIVE_CONFIRM=I_UNDERSTAND_THE_RISK", file=sys.stderr)
         print("  export POLYMARKET_PRIVATE_KEY=0x...", file=sys.stderr)
+        print("  pip install '.[live]'", file=sys.stderr)
+        print("\nThen re-run `polybot live`. Test with `polybot paper` first.", file=sys.stderr)
         return 1
-    print("Live trading gate satisfied. Refusing to auto-start without explicit")
-    print("market wiring — construct TradingEngine and call run() from your own script.")
-    return 0
+    if not args.yes:
+        print("About to trade REAL money on Polymarket. Re-run with --yes to confirm.",
+              file=sys.stderr)
+        return 1
+    return _run_live_runner(cfg, args.cycles)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -118,8 +142,14 @@ def build_parser() -> argparse.ArgumentParser:
     sc.add_argument("--limit", type=int, default=20)
     sc.set_defaults(func=cmd_scan)
 
-    sub.add_parser("paper", help="paper trade against live feeds").set_defaults(func=cmd_paper)
-    sub.add_parser("live", help="live trade (multi-gate opt-in)").set_defaults(func=cmd_live)
+    pa = sub.add_parser("paper", help="paper trade against REAL live feeds (no keys/risk)")
+    pa.add_argument("--cycles", type=int, default=None, help="stop after N loop cycles (default: run forever)")
+    pa.set_defaults(func=cmd_paper)
+
+    lv = sub.add_parser("live", help="live trade for real money (multi-gate opt-in)")
+    lv.add_argument("--cycles", type=int, default=None, help="stop after N loop cycles")
+    lv.add_argument("--yes", action="store_true", help="confirm real-money trading")
+    lv.set_defaults(func=cmd_live)
     return p
 
 

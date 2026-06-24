@@ -34,6 +34,25 @@ class BinanceFeed:
     def get_prices(self, symbols: Iterable[str]) -> dict[str, PricePoint]:
         return {s: self.get_price(s) for s in symbols}
 
+    def get_price_at(self, symbol: str, ts: float) -> PricePoint:
+        """Open price of the 1-minute candle covering ``ts`` (unix seconds).
+
+        Used to recover a short-duration market's reference "open" price — the
+        level the up/down outcome is measured against.
+        """
+        start_ms = int(ts // 60 * 60 * 1000)
+        url = (
+            f"{self.rest_url}/api/v3/klines?symbol={symbol.upper()}"
+            f"&interval=1m&startTime={start_ms}&limit=1"
+        )
+        with urllib.request.urlopen(url, timeout=self.timeout) as r:
+            data = json.loads(r.read().decode())
+        if not data:
+            # Fall back to the current price if no historical candle is returned.
+            return self.get_price(symbol)
+        # Kline format: [openTime, open, high, low, close, ...]
+        return PricePoint(symbol=symbol.upper(), price=float(data[0][1]), ts=ts)
+
     async def stream(self, symbol: str) -> AsyncIterator[PricePoint]:
         """Yield live trade prices from the WebSocket feed.
 

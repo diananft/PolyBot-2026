@@ -32,7 +32,7 @@ git clone <this repo> && cd PolyBot-2026
 python -m polybot demo          # self-contained paper-trading run on synthetic data
 python -m polybot backtest -n 300
 python -m polybot config        # show effective config (secrets redacted)
-pip install pytest && python -m pytest -q   # 46 tests
+pip install pytest && python -m pytest -q   # 63 tests
 ```
 
 Optional install as a CLI:
@@ -93,9 +93,37 @@ separation is what lets the kill switch be authoritative.
 - Timing filters: don't trade the first 30% of a window (genuinely uncertain) or
   the last 20 seconds (can't execute/settle cleanly).
 
+## Paper trade against REAL live markets (no keys, no risk)
+
+```bash
+polybot paper            # discovers live 5/15-min crypto up/down markets and
+                         # paper-trades them against real Binance + Polymarket data
+polybot paper --cycles 5 # bounded run
+```
+
+`paper` is always safe: it forces simulation regardless of env. It uses the
+same discovery → strategy → brain → risk → execution pipeline as live, so what
+you see in paper is exactly what live would do. Market discovery:
+
+- pulls active short-duration crypto events from Polymarket's Gamma API
+  (filtered to those closing within the hour — the currently-running windows),
+- derives each window from the title (e.g. `10:30AM-10:45AM ET` = 15 min) and
+  anchors it to the close (the `startDate` field is deploy time, not the open),
+- seeds each market's reference open price from Binance,
+- maps `Up`→UP / `Down`→DOWN token ids for CLOB execution.
+
+> Data note: the default Binance host is `data-api.binance.vision` (Binance's
+> public data endpoint — same `/api/v3` data, but not geo-restricted like
+> `api.binance.com`, which returns HTTP 451 in many regions). Override with
+> `POLYBOT_BINANCE_REST` if you have direct access.
+
 ## Going live (only if you accept you may lose everything)
 
 Live trading is blocked unless **all three** are set:
+
+1. **Fund a Polygon wallet** with USDC (chain id 137) and have its private key.
+2. **Test in paper first**: `polybot paper` for a good while. Confirm it behaves.
+3. Arm the three gates and install live deps:
 
 ```bash
 export POLYBOT_LIVE=true
@@ -104,19 +132,21 @@ export POLYMARKET_PRIVATE_KEY=0x...        # Polygon wallet, USDC settlement
 pip install ".[live]"                       # py-clob-client + websockets
 ```
 
-Even then, `polybot live` refuses to auto-start; you must wire concrete markets
-and call `TradingEngine.run()` from your own script, so going live is always a
-deliberate act. See `polybot/cli.py` and `polybot/engine.py`.
+4. Start with a tiny bankroll and run it:
 
-```python
-from polybot import Config, TradingEngine
-from polybot.models import Market
-
-cfg = Config()                      # reads env; paper unless gates are set
-engine = TradingEngine(cfg)
-engine.track(Market(...))           # supply real market_id + token ids
-engine.run(max_cycles=None)         # paper by default
+```bash
+polybot live --yes            # requires all gates AND --yes; else it refuses
+polybot live --yes --cycles 20
 ```
+
+`live` will not start unless every gate passes *and* you pass `--yes`. It then
+runs the same auto-discovery loop as `paper`, but submits real signed orders.
+Tune risk limits (bankroll, Kelly fraction, caps, kill switch) in
+`polybot/config.py` → `RiskConfig`.
+
+> Before risking real money, verify that your interpretation of each market's
+> resolution (price-at-close vs price-at-open) matches Polymarket's actual rules
+> for that series, and start with a bankroll you can afford to lose entirely.
 
 ## Project layout
 
@@ -138,15 +168,17 @@ polybot/
     portfolio.py       # cash, positions, PnL, exposure, settlement
   backtest/engine.py   # replay scenarios through the live pipeline
   demo.py              # synthetic, deterministic scenario generator
+  discovery.py         # turn live Gamma events into Market objects
+  live_runner.py       # discovery + execution loop for real markets
   engine.py            # orchestration loop
   cli.py               # `polybot {demo,backtest,scan,config,paper,live}`
-tests/                 # 46 unit tests, no network required
+tests/                 # 63 unit tests, no network required
 ```
 
 ## Tests
 
 ```bash
-python -m pytest -q     # 46 passed
+python -m pytest -q     # 63 passed
 ```
 
 Coverage spans fair-value math, Kelly sizing, risk/kill-switch behavior,
