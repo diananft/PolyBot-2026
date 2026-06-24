@@ -83,6 +83,14 @@ class Config:
     polymarket_api_key: str = field(default_factory=lambda: os.getenv("POLYMARKET_API_KEY", ""))
     polymarket_api_secret: str = field(default_factory=lambda: os.getenv("POLYMARKET_API_SECRET", ""))
     polymarket_api_passphrase: str = field(default_factory=lambda: os.getenv("POLYMARKET_API_PASSPHRASE", ""))
+    # Wallet type. 0 = EOA (MetaMask/private key holds the USDC directly).
+    # 1 = email/Magic wallet, 2 = browser proxy wallet. For 1/2 you MUST also set
+    # the funder to your Polymarket deposit/proxy address.
+    polymarket_signature_type: int = field(default_factory=lambda: int(_env_float("POLYMARKET_SIGNATURE_TYPE", 0)))
+    polymarket_funder: str = field(default_factory=lambda: os.getenv("POLYMARKET_FUNDER", ""))
+    # Order time-in-force. FAK (fill-and-kill) suits a taker bot: fill what's on
+    # the book now, cancel the rest — never leaves a resting order behind.
+    order_type: str = field(default_factory=lambda: os.getenv("POLYBOT_ORDER_TYPE", "FAK"))
     anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
 
     # --- endpoints ---
