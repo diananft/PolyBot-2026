@@ -143,6 +143,11 @@ pip install ".[live]"                       # py-clob-client + websockets
 API credentials are derived automatically from your key on startup — you do
 not create them by hand.
 
+> Tip: instead of exporting variables, copy `.env.example` to `.env`, fill it
+> in, and the bot loads it automatically from the current directory. On Windows
+> PowerShell use `$env:NAME = "value"` (not `export`) if you set them by hand,
+> and set them in the same window you run the bot in.
+
 4. Start with a tiny bankroll and run it:
 
 ```bash

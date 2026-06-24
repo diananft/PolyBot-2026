@@ -138,5 +138,41 @@ class Config:
         return d
 
 
+def load_dotenv(path: str = ".env") -> int:
+    """Load KEY=VALUE pairs from a .env file into os.environ.
+
+    Stdlib only, no dependency. Existing environment variables are NOT
+    overridden (real env wins). Tolerates a leading ``export `` (so bash-style
+    lines work too), surrounding quotes, blank lines and ``#`` comments.
+    Returns the number of variables loaded. Silently does nothing if the file
+    is absent.
+    """
+    if not os.path.isfile(path):
+        return 0
+    loaded = 0
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.lower().startswith("export "):
+                    line = line[7:].strip()
+                if "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+                    loaded += 1
+    except OSError:
+        return loaded
+    return loaded
+
+
 def load_config() -> Config:
+    # Auto-load a .env from the current directory if present, so users don't
+    # have to export every variable by hand.
+    load_dotenv()
     return Config()
