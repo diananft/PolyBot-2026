@@ -36,10 +36,10 @@ def _simulate_path(open_price: float, minute_vol: float, window_s: float, n_tick
     return prices
 
 
-def build_demo_scenarios(n: int = 200, seed: int = 7) -> list[Scenario]:
+def build_demo_scenarios(n: int = 200, seed: int = 7, config: Config | None = None) -> list[Scenario]:
     """Build ``n`` synthetic 15-minute BTC up/down markets."""
     rng = random.Random(seed)
-    cfg = Config()
+    cfg = config or Config()
     minute_vol = cfg.strategy.minute_vol
     window_s = 15 * 60.0
     n_ticks = 30
@@ -103,8 +103,9 @@ def build_demo_scenarios(n: int = 200, seed: int = 7) -> list[Scenario]:
 
 
 def run_demo(n: int = 200, seed: int = 7, config: Config | None = None) -> BacktestResult:
-    scenarios = build_demo_scenarios(n=n, seed=seed)
-    return Backtester(config or Config()).run(scenarios)
+    cfg = config or Config()
+    scenarios = build_demo_scenarios(n=n, seed=seed, config=cfg)
+    return Backtester(cfg).run(scenarios)
 
 
 if __name__ == "__main__":

@@ -71,8 +71,22 @@ class TradingEngine:
             ts=signal.ts,
         )
 
+    def holds_position(self, market_id: str) -> bool:
+        """True if we already hold either side of this market."""
+        return any(mid == market_id for (mid, _side) in self.portfolio.positions)
+
     def evaluate_market(self, market: Market) -> Optional[Order]:
         """Run the full pipeline for one market; returns an Order if approved."""
+        # Never stack a second position on a market we already hold — without
+        # this guard the poll loop would re-buy the same market every cycle for
+        # as long as the edge persists. One position per market until it
+        # resolves (see resolve_market).
+        if self.holds_position(market.market_id):
+            return None
+        # Don't act on a window that has already closed.
+        if market.close_ts - time.time() <= 0:
+            return None
+
         try:
             price = self.binance.get_price(market.underlying)
         except Exception as e:  # pragma: no cover - network
@@ -130,6 +144,20 @@ class TradingEngine:
                     self.portfolio.equity_usd(),
                 )
         self.risk.update_equity(self.portfolio.equity_usd())
+
+    def resolve_market(self, market_id: str, won_side: Side) -> float:
+        """Settle a resolved market: pay out winning shares, free the exposure,
+        feed the realised PnL to the risk manager (loss-streak kill switch) and
+        stop tracking it. Returns realised PnL. Call this when a tracked market
+        resolves on-chain."""
+        had_position = self.holds_position(market_id)
+        pnl = self.portfolio.settle(market_id, won_side)
+        if had_position:
+            self.risk.record_trade_result(pnl)
+        self.markets.pop(market_id, None)
+        self.risk.update_equity(self.portfolio.equity_usd())
+        log.info("resolved %s won=%s pnl=$%.2f", market_id, won_side.value, pnl)
+        return pnl
 
     def run(self, max_cycles: Optional[int] = None, sleep: Optional[Callable[[float], None]] = None) -> None:
         """Run the loop. ``max_cycles=None`` runs forever; pass an int for tests."""

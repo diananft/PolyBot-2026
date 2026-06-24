@@ -54,7 +54,7 @@ def cmd_backtest(args) -> int:
     from .backtest.engine import Backtester
 
     cfg = load_config()
-    scenarios = build_demo_scenarios(n=args.n)
+    scenarios = build_demo_scenarios(n=args.n, config=cfg)
     result = Backtester(cfg).run(scenarios)
     print(f"backtest over {len(scenarios)} markets:")
     print(f"  trades={result.n_trades} win_rate={result.win_rate:.1%} "

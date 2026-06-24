@@ -62,6 +62,64 @@ def test_engine_full_pipeline_paper_trade():
     assert ("m", Side.UP) in engine.portfolio.positions
 
 
+def test_engine_does_not_restack_same_market():
+    now = time.time()
+    cfg = Config()
+    engine = TradingEngine(
+        cfg,
+        binance=_StubBinance(100.6),
+        polymarket=_StubPoly(up_ask=0.52, down_ask=0.50),
+        executor=PaperExecutor(cfg.risk.slippage, cfg.risk.fee_rate),
+    )
+    m = Market("m", "BTC up?", "BTCUSDT", open_ts=now - 540, close_ts=now + 360,
+               open_price=100.0, up_token_id="u", down_token_id="d")
+    engine.track(m)
+    engine.step()
+    pos = engine.portfolio.positions[("m", Side.UP)]
+    shares_after_first = pos.shares
+    # Second cycle must NOT buy again while we already hold the position.
+    engine.step()
+    engine.step()
+    assert engine.portfolio.positions[("m", Side.UP)].shares == shares_after_first
+
+
+def test_engine_resolution_settles_and_frees_market():
+    now = time.time()
+    cfg = Config()
+    engine = TradingEngine(
+        cfg,
+        binance=_StubBinance(100.6),
+        polymarket=_StubPoly(up_ask=0.52, down_ask=0.50),
+        executor=PaperExecutor(cfg.risk.slippage, cfg.risk.fee_rate),
+    )
+    m = Market("m", "BTC up?", "BTCUSDT", open_ts=now - 540, close_ts=now + 360,
+               open_price=100.0, up_token_id="u", down_token_id="d")
+    engine.track(m)
+    engine.step()
+    assert engine.holds_position("m")
+    pnl = engine.resolve_market("m", won_side=Side.UP)
+    assert not engine.holds_position("m")
+    assert "m" not in engine.markets
+    assert pnl > 0  # bought UP cheap, UP won
+
+
+def test_engine_skips_closed_market():
+    now = time.time()
+    cfg = Config()
+    engine = TradingEngine(
+        cfg,
+        binance=_StubBinance(100.6),
+        polymarket=_StubPoly(0.52, 0.50),
+        executor=PaperExecutor(0.0, 0.0),
+    )
+    # Already past close.
+    m = Market("m", "q", "BTCUSDT", open_ts=now - 900, close_ts=now - 1,
+               open_price=100.0, up_token_id="u", down_token_id="d")
+    engine.track(m)
+    engine.step()
+    assert not engine.holds_position("m")
+
+
 def test_engine_respects_kill_switch():
     cfg = Config()
     engine = TradingEngine(
