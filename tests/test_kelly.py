@@ -34,6 +34,25 @@ def test_position_size_respects_cap():
     assert size == 100.0  # capped at 10% of bankroll
 
 
+def test_absolute_usd_cap_binds():
+    # Kelly+fraction would give $50, but the absolute $1.50 ceiling wins.
+    size = position_size_usd(
+        win_prob=0.6, price=0.5, bankroll_usd=1000,
+        kelly_fraction_used=0.25, max_position_fraction=1.0,
+        max_position_usd=1.50,
+    )
+    assert abs(size - 1.50) < 1e-9
+
+
+def test_absolute_usd_cap_disabled_when_zero():
+    size = position_size_usd(
+        win_prob=0.6, price=0.5, bankroll_usd=1000,
+        kelly_fraction_used=0.25, max_position_fraction=1.0,
+        max_position_usd=0.0,
+    )
+    assert size > 1.50  # no absolute cap applied
+
+
 def test_fractional_kelly_scales():
     full = position_size_usd(0.6, 0.5, 1000, 1.0, 1.0)
     quarter = position_size_usd(0.6, 0.5, 1000, 0.25, 1.0)

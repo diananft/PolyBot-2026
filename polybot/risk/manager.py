@@ -96,6 +96,7 @@ class RiskManager:
             bankroll_usd=bankroll_usd,
             kelly_fraction_used=self.config.kelly_fraction,
             max_position_fraction=self.config.max_position_fraction,
+            max_position_usd=self.config.max_position_usd,
         )
         if size <= 0:
             return RiskDecision(False, 0.0, "kelly size non-positive")

@@ -87,7 +87,10 @@ separation is what lets the kill switch be authoritative.
 
 - **Quarter-Kelly** sizing (`kelly_fraction=0.25`) — full Kelly is too violent
   under estimation error.
-- **Per-position cap** at 10% of bankroll; **portfolio exposure cap** at 50%.
+- **Per-position cap** at 10% of bankroll **and** an absolute `max_position_usd`
+  ceiling (default **$1.50** per bet); **portfolio exposure cap** at 50%. Set
+  bankroll and the per-bet ceiling via `POLYBOT_BANKROLL` /
+  `POLYBOT_MAX_POSITION_USD` (no code edit needed).
 - **Minimum edge** (4%) and **minimum confidence** (0.55) to act at all.
 - **Kill switch** on 20% drawdown from peak, or 8 consecutive losses.
 - Timing filters: don't trade the first 30% of a window (genuinely uncertain) or
